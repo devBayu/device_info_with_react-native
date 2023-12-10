@@ -24,7 +24,8 @@ import {
 } from '../assets/icon';
 import NetInfo from '@react-native-community/netinfo';
 import ReactNativeBiometrics from 'react-native-biometrics';
-import RNFS from 'react-native-fs';
+
+const biometrics = new ReactNativeBiometrics({allowDeviceCredentials: true});
 
 function App(): JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -35,26 +36,20 @@ function App(): JSX.Element {
   const [deviceName, setDeviceName] = useState('');
   const [androidLevel, setAndroidLevel] = useState(0);
   const [baseOS, setBaseOS] = useState('');
-  const [memory, setMemory] = useState(0);
-  const [capacity, setCapacity] = useState(0);
+  const [battery, setBattery] = useState(0);
   const [ipAddress, setIpAddress] = useState('');
   const [generalInfoDevice, setGeneralInfoDevice] = useState([{}]);
   const [isEnabled, setIsEnabled] = useState(false);
   const [connectionType, setConnectionType] = useState('');
-
-  const rnBiometrics = new ReactNativeBiometrics({
-    allowDeviceCredentials: true,
-  });
+  const [fingerPrintEnabled, setFingerPrintEnabled] = useState(false);
 
   useEffect(() => {
     getDeviceName();
     getAndroidLevel();
     getBaseOs();
-    getTotalMemory();
-    getTotalStorage();
+    getBatteryLevel();
     getIPAddress();
     getNetworkInfo();
-    getStorageInfo();
   }, []);
 
   const getDeviceName = async () => {
@@ -79,29 +74,13 @@ function App(): JSX.Element {
     setBaseOS(Platform.OS);
   };
 
-  const getTotalMemory = async () => {
-    let memory = await DeviceInfo.getTotalMemory();
-    const kbToBytes = 1024;
-    const decimal = 2;
-    const index = Math.floor(Math.log(memory) / Math.log(kbToBytes));
-    setMemory(Math.round(memory / Math.pow(kbToBytes, index)));
-  };
-
-  const getTotalStorage = async () => {
-    let capacity = await DeviceInfo.getTotalDiskCapacity();
-    setCapacity(capacity);
+  const getBatteryLevel = async () => {
+    let battery = await DeviceInfo.getBatteryLevel();
+    setBattery(Math.round(battery * 100));
   };
 
   const getIPAddress = async () => {
     setIpAddress(await DeviceInfo.getIpAddress());
-  };
-
-  const parseToGb = (byte: number) => {
-    const kbToBytes = 1024;
-    const decimal = 2;
-    return parseFloat(
-      Math.floor(Math.log(byte) / Math.log(kbToBytes)).toFixed(decimal),
-    );
   };
 
   const getNetworkInfo = () => {
@@ -110,7 +89,17 @@ function App(): JSX.Element {
     });
   };
 
-  const toggleSwitch = () => setIsEnabled(prevState => !prevState);
+  const toggleSwitch = (switchVal: string) => {
+    switch (switchVal) {
+      case 'FINGERPRINT':
+        setFingerPrintEnabled(prevState => !prevState);
+        break;
+      case 'VIBRATION':
+        setIsEnabled(prevState => !prevState);
+      default:
+        break;
+    }
+  };
 
   const handleValueChange = (type: string) => {
     switch (type) {
@@ -121,28 +110,30 @@ function App(): JSX.Element {
         }, 1000);
         break;
       case 'fingerprint':
-
-        console.log(
-          rnBiometrics.createSignature({
-            promptMessage: 'Sign in',
-            payload: 'haha',
-          }).then((hjd) => {
-            console.log('haha');
-            
-          }),
-        );
-        
+        getSensorAvailable();
         break;
     }
   };
 
-  const getStorageInfo = () => {
-    // RNFS.getFSInfo().then((info) => {
-    //   console.log('INFO ', info);
-    // })
-    console.log('=>> ', RNFS);
-    
-  }
+  const getSensorAvailable = () => {
+    biometrics
+      .simplePrompt({promptMessage: 'Tap your finger'})
+      .then(resultObject => {
+        console.log("result : ", resultObject);
+        
+        const {success} = resultObject;
+
+        if (success) {
+          setFingerPrintEnabled(true);
+          console.log('Successfull biometrics provided');
+        } else {
+          console.log('User Cancelled biometric prompt');
+        }
+      })
+      .catch(error => {
+        console.log('ERROR', error);
+      });
+  };
 
   return (
     <View style={styles.container}>
@@ -171,8 +162,8 @@ function App(): JSX.Element {
             resizeMode="center"
           />
           <View style={styles.wrapperTxtStorage}>
-            <Text>Internal Storage</Text>
-            <Text>783 Gb / {capacity} Gb</Text>
+            <Text>Battery Capacity</Text>
+            <Text>{battery} %</Text>
           </View>
         </View>
         <View style={styles.cardListInfo}>
@@ -195,9 +186,24 @@ function App(): JSX.Element {
           <View style={styles.wrapperSensorTest}>
             <Text>Sensor Vibration</Text>
             <Switch
-              onValueChange={toggleSwitch}
+              onValueChange={() => toggleSwitch('VIBRATION')}
               value={isEnabled}
               onChange={() => handleValueChange('vibration')}
+            />
+          </View>
+        </View>
+        <View style={styles.cardListInfo}>
+          <Image
+            source={ic_fingerprint}
+            style={styles.iconStyle}
+            resizeMode="center"
+          />
+          <View style={styles.wrapperSensorTest}>
+            <Text>Sensor Fingerprint</Text>
+            <Switch
+              onValueChange={() => toggleSwitch('FINGERPRINT')}
+              value={fingerPrintEnabled}
+              onChange={() => handleValueChange('fingerprint')}
             />
           </View>
         </View>
