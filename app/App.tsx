@@ -18,7 +18,7 @@ import {styles} from './styles';
 import {
   ic_fingerprint,
   ic_gps,
-  ic_storage,
+  ic_battery,
   ic_vibration,
   ic_wifi,
 } from '../assets/icon';
@@ -157,7 +157,7 @@ function App(): JSX.Element {
         </View>
         <View style={styles.cardListInfo}>
           <Image
-            source={ic_storage}
+            source={ic_battery}
             style={styles.iconStyle}
             resizeMode="center"
           />
